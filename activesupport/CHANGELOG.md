@@ -1,3 +1,14 @@
+*   `ActiveSupport::MessagePack::CacheSerializer` treats a cached object whose
+    class is missing as a cache miss instead of returning a cached `nil`.
+
+    When a cached object's class has been renamed or removed (for example after
+    a deploy), the serializer now raises
+    `ActiveSupport::Cache::DeserializationError`, which the cache store handles
+    as a miss, matching the Marshal serializer. Previously `fetch` returned
+    `nil` without recomputing and the entry was never rewritten.
+
+    *M Ibtehaj Nasar*
+
 *   Fix `FrozenError` when using a frozen `ActiveSupport::MessageVerifier` or
     `ActiveSupport::MessageEncryptor` that had not verified or decrypted a
     message yet, as after `Ractor.make_shareable`, and when freezing an already

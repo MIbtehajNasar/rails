@@ -10,8 +10,11 @@ module ActiveSupport
 
       def load(dumped)
         super
-      rescue ActiveSupport::MessagePack::MissingClassError
-        # Treat missing class as cache miss => return nil
+      rescue ActiveSupport::MessagePack::MissingClassError => error
+        # An entry that references a missing class (e.g. renamed or removed on a
+        # deploy) must be a cache miss, not a cached nil. Raise the error the
+        # store rescues as a miss, like the Marshal serializer does.
+        raise ActiveSupport::Cache::DeserializationError, error.message
       end
 
       private

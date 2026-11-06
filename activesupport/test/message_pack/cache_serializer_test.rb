@@ -27,13 +27,32 @@ class MessagePackCacheSerializerTest < ActiveSupport::TestCase
     end
   end
 
-  test "handles missing class gracefully" do
+  test "treats a missing class as a cache miss by raising DeserializationError" do
     klass = Class.new(DefinesFromMsgpackExt)
     def klass.name; "DoesNotActuallyExist"; end
 
     dumped = dump(klass.new("foo"))
     assert_not_nil dumped
-    assert_nil load(dumped)
+    # A missing class must raise (which the cache store treats as a miss), not
+    # return nil (which the store would treat as a cached nil). See #59681.
+    assert_raises(ActiveSupport::Cache::DeserializationError) { load(dumped) }
+  end
+
+  test "a cache store treats a cached object of a missing class as a miss, not a cached nil" do
+    klass = Class.new(DefinesFromMsgpackExt)
+    def klass.name; "DoesNotActuallyExist"; end
+
+    cache = ActiveSupport::Cache::MemoryStore.new(serializer: :message_pack)
+    cache.write("key", klass.new("foo"))
+
+    recomputed = false
+    value = cache.fetch("key") do
+      recomputed = true
+      "recalculated"
+    end
+
+    assert recomputed, "fetch should treat the missing class as a miss and call the block"
+    assert_equal "recalculated", value
   end
 
   private
